@@ -1,7 +1,722 @@
 <!DOCTYPE html>
-<html>
-<body>
-<h1>Hello World</h1>
-<p>I'm hosted with GitHub Pages.</p>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skytop Lodge Family Planner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chosen Palette: Earthy Harmony -->
+    <!-- Application Structure Plan: The application is designed as an interactive, single-page dashboard to solve the core user problem: planning a multi-generational family trip from a dense report. Instead of a linear document, the SPA uses a task-oriented structure with three main sections (Home, Activities, Dining) accessible via a persistent top navigation. This allows users to focus on one planning aspect at a time. The core of the design is a powerful filtering system within the 'Activities' and 'Dining' sections. Users can dynamically sift through options based on age-appropriateness, activity type, and reservation needs. This transforms passive information consumption into an active planning process, directly addressing the need to find suitable options for a diverse group (ages 0-75). A card-based layout presents information in digestible chunks, with icons for quick scanning and modals for in-depth details, preventing overwhelm and keeping the user in context. This interactive dashboard structure was chosen because it's far more usable and efficient for trip planning than a static document, empowering the family to collaboratively build their ideal vacation. -->
+    <!-- Visualization & Content Choices: Report Info -> Goal -> Viz/Presentation Method -> Interaction -> Justification -> Library/Method.
+        - Report Info: Comprehensive list of Skytop activities and dining.
+        - Goal: Organize & Filter: Help the user quickly find relevant options for their diverse family.
+        - Viz/Presentation: Card-based layout (HTML/Tailwind) for individual items, using Unicode icons (👤,💲,📅,⭐) for at-a-glance information. A summary bar chart (Chart.js) on the activities page provides a high-level overview of available activity types.
+        - Interaction: Users click filter buttons (for age, type, price, etc.) to dynamically hide/show cards (Vanilla JS). Clicking a "Details" button opens a modal (JS) with more information, preventing context loss. Clicking a star icon toggles a 'favorite' state.
+        - Justification: This multi-layered approach handles information complexity. Filters solve the primary search problem. Cards make the results scannable. Icons provide rapid understanding. Modals offer depth on demand. The chart gives a quick quantitative summary. This is highly usable for planning.
+        - Library/Method: Tailwind CSS, Vanilla JavaScript, Chart.js on a Canvas element. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        /* Using a warm, earthy, and calm color palette for a relaxing planning experience */
+        :root {
+            --bg-main: #FBFBF8; /* Warm off-white */
+            --bg-card: #FFFFFF;
+            --text-dark: #3D4043; /* Soft charcoal */
+            --text-light: #6B7280;
+            --primary: #285430; /* Deep, natural green */
+            --primary-light: #A4BE7B;
+            --accent: #DEAB4D; /* Warm gold/amber */
+            --accent-hover: #C99A45;
+            --border-color: #E5E7EB;
+        }
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-dark);
+            font-family: 'Inter', sans-serif;
+        }
+        .nav-link {
+            transition: all 0.3s ease;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-link.active, .nav-link:hover {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+        .filter-btn {
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-color);
+        }
+        .filter-btn.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+        .filter-btn:not(.active):hover {
+            background-color: var(--bg-main);
+            border-color: var(--primary);
+        }
+        .card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+        }
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            transition: background-color 0.3s ease;
+        }
+        .btn-primary:hover {
+            background-color: #1A3A20; 
+        }
+        .favorite-icon.favorited {
+            color: var(--accent);
+        }
+        .modal {
+            background-color: rgba(0, 0, 0, 0.5);
+            transition: opacity 0.3s ease;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 40vh;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Lora:wght@500&display=swap" rel="stylesheet">
+</head>
+<body class="antialiased">
+
+    <div id="app" class="container mx-auto p-4 md:p-8 max-w-7xl">
+
+        <!-- Header and Navigation -->
+        <header class="mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-center pb-4 border-b border-[--border-color]">
+                <div>
+                    <h1 class="text-3xl md:text-4xl font-bold" style="font-family: 'Lora', serif; color: var(--primary);">Skytop Lodge Planner</h1>
+                    <p class="text-sm" style="color: var(--text-light);">Your Family Getaway: August 7-10</p>
+                </div>
+                <nav id="main-nav" class="flex space-x-4 md:space-x-6 mt-4 md:mt-0">
+                    <button class="nav-link text-lg font-medium p-2 active" data-target="home">Home</button>
+                    <button class="nav-link text-lg font-medium p-2" data-target="activities">Activity Planner</button>
+                    <button class="nav-link text-lg font-medium p-2" data-target="dining">Dining Guide</button>
+                </nav>
+            </div>
+        </header>
+
+        <main>
+            <!-- Home Section -->
+            <section id="home" class="page">
+                <div class="bg-[--bg-card] p-6 rounded-lg shadow-sm border border-[--border-color]">
+                    <h2 class="text-2xl font-bold mb-4" style="color: var(--primary);">Welcome to Your Family Vacation Planner!</h2>
+                    <p class="mb-4 text-lg">This interactive guide is designed to help your family of 15 explore all the wonderful activities and dining Skytop Lodge has to offer. Your group has a fantastic mix of ages, and this tool will help you find something for everyone!</p>
+                    <div class="mb-6">
+                        <h3 class="text-xl font-semibold mb-2">Your Family Group:</h3>
+                        <ul class="list-disc list-inside space-y-1" style="color: var(--text-light);">
+                            <li>Grandparents: 75M, 74F</li>
+                            <li>Adults & Children: 45M, 44F, 7F, 4M</li>
+                            <li>Adults: 43F, 43M</li>
+                            <li>Adults & Children: 40M, 41F, 8M, 6M, 4F</li>
+                            <li>Adults & Children: 38F, 37M, 4M, 2F, 0M</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-semibold mb-2">How to Use This Planner:</h3>
+                        <ol class="list-decimal list-inside space-y-2 text-md">
+                            <li>Use the <strong style="color: var(--primary);">Activity Planner</strong> to discover adventures. Use the filters to find activities perfect for different age groups and interests.</li>
+                            <li>Explore the <strong style="color: var(--primary);">Dining Guide</strong> to see all the culinary options, from casual to elegant.</li>
+                            <li>Click the <strong class="text-lg" style="color: var(--accent);">⭐</strong> icon on any card to mark it as a favorite for your family to discuss.</li>
+                            <li>Click <strong class="font-semibold">"Show Details"</strong> on any card for full information, including reservation requirements, pricing, and reviews.</li>
+                        </ol>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Activity Planner Section -->
+            <section id="activities" class="page hidden">
+                <div class="bg-[--bg-card] p-6 rounded-lg shadow-sm border border-[--border-color] mb-8">
+                     <h2 class="text-2xl font-bold mb-2" style="color: var(--primary);">Find Your Adventure</h2>
+                     <p class="mb-6 text-md" style="color: var(--text-light);">There's a wide range of activities available at Skytop. Use the filters below to narrow down the options and find the perfect experiences for your family members. The chart gives a quick overview of what kinds of activities are on offer.</p>
+                     <div class="chart-container mb-8">
+                        <canvas id="activityTypeChart"></canvas>
+                     </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="mb-8 p-4 bg-[--bg-card] rounded-lg border border-[--border-color]">
+                    <div class="mb-4">
+                        <h3 class="font-bold mr-4 mb-2">Filter by Age Group:</h3>
+                        <div id="age-filters" class="flex flex-wrap gap-2">
+                             <button class="filter-btn active px-4 py-2 text-sm font-medium rounded-full" data-age="all">All Ages</button>
+                             <button class="filter-btn px-4 py-2 text-sm font-medium rounded-full" data-age="0-5">Toddlers (0-5)</button>
+                             <button class="filter-btn px-4 py-2 text-sm font-medium rounded-full" data-age="6-12">Kids (6-12)</button>
+                             <button class="filter-btn px-4 py-2 text-sm font-medium rounded-full" data-age="13-17">Teens (13+)</button>
+                             <button class="filter-btn px-4 py-2 text-sm font-medium rounded-full" data-age="18+">Adults (18+)</button>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-bold mr-4 mb-2">Filter by Activity Type:</h3>
+                        <div id="type-filters" class="flex flex-wrap gap-2">
+                             <button class="filter-btn active px-4 py-2 text-sm font-medium rounded-full" data-type="all">All Types</button>
+                             <button class="filter-btn px-4 py-2 text-sm font-medium rounded-full" data-type="Adventurous">Adventurous</button>
+                             <button class="filter-btn px-4 py-2 text-sm font-medium rounded-full" data-type="Water">Water</button>
+                             <button class="filter-btn px-4 py-2 text-sm font-medium rounded-full" data-type="Relaxing">Relaxing</button>
+                             <button class="filter-btn px-4 py-2 text-sm font-medium rounded-full" data-type="Sports">Sports</button>
+                             <button class="filter-btn px-4 py-2 text-sm font-medium rounded-full" data-type="Creative/Educational">Educational</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Activity Cards Grid -->
+                <div id="activity-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Activity cards will be dynamically inserted here -->
+                </div>
+            </section>
+
+            <!-- Dining Guide Section -->
+            <section id="dining" class="page hidden">
+                <div class="bg-[--bg-card] p-6 rounded-lg shadow-sm border border-[--border-color] mb-8">
+                     <h2 class="text-2xl font-bold mb-2" style="color: var(--primary);">Explore Dining Options</h2>
+                     <p class="mb-4 text-md" style="color: var(--text-light);">From fine dining to a casual bite, Skytop has a variety of restaurants. Use the filters to find the perfect spot for any meal.</p>
+                </div>
+                <!-- Filters -->
+                <div class="mb-8 p-4 bg-[--bg-card] rounded-lg border border-[--border-color]">
+                    <h3 class="font-bold mr-4 mb-2">Filter by Type:</h3>
+                    <div id="dining-filters" class="flex flex-wrap gap-2">
+                         <button class="filter-btn active px-4 py-2 text-sm font-medium rounded-full" data-dining-type="all">All</button>
+                         <button class="filter-btn px-4 py-2 text-sm font-medium rounded-full" data-dining-type="Fine Dining">Fine Dining</button>
+                         <button class="filter-btn px-4 py-2 text-sm font-medium rounded-full" data-dining-type="Casual">Casual</button>
+                         <button class="filter-btn px-4 py-2 text-sm font-medium rounded-full" data-dining-type="Quick Bites">Quick Bites</button>
+                         <button class="filter-btn px-4 py-2 text-sm font-medium rounded-full" data-dining-type="Bar/Lounge">Bar/Lounge</button>
+                    </div>
+                </div>
+                <!-- Dining Cards Grid -->
+                <div id="dining-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Dining cards will be dynamically inserted here -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" class="modal fixed inset-0 z-50 items-center justify-center p-4 hidden" style="backdrop-filter: blur(2px);">
+        <div class="bg-[--bg-card] rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-start">
+                    <h2 id="modal-title" class="text-2xl font-bold mb-4" style="color: var(--primary);"></h2>
+                    <button id="modal-close-btn" class="text-2xl font-bold text-gray-500 hover:text-gray-800">&times;</button>
+                </div>
+                <div id="modal-content" class="text-base" style="color: var(--text-light);"></div>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            const activityData = [
+                {
+                    id: 1, title: 'Treetop Adventure Course',
+                    summary: 'A high ropes course with obstacles and 17 zip lines.',
+                    ages: [10, 11, 12, 13, 14, 15, 16, 17, 18, 74], type: 'Adventurous',
+                    details: `
+                        <p class="mb-2"><strong>Description:</strong> A thrilling high ropes course stretching over 3,000 feet, featuring elevated bridgeways, cargo nets, ladders, and 17 different zip lines. Full (4hr) or Half (2hr) options available.</p>
+                        <p class="mb-2"><strong>Requirements:</strong> <strong>10+ years old</strong>; must have 5'11" overhead reach; weight under 275 lbs. Children under 16 need an adult on the course with them.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> <strong>Required.</strong> Book well in advance, especially in August. Strict cancellation policy.</p>
+                        <p class="mb-2"><strong>Price:</strong> Full Course: $55 (guest), Half Course: $45 (guest), Zip Line Only: $30.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> Highly rated (4.9/5). Praised for "super nice staff," "challenging," "fun and safe." Many recommend the full course.</p>
+                    `
+                },
+                {
+                    id: 2, title: 'Archery Lessons',
+                    summary: 'One-hour sessions covering introduction, techniques, and practice.',
+                    ages: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 74], type: 'Sports',
+                    details: `
+                        <p class="mb-2"><strong>Description:</strong> One-hour lessons for up to six people, covering basics, shooting techniques, and fun games.</p>
+                        <p class="mb-2"><strong>Requirements:</strong> <strong>6+ years old.</strong> Must be able to pull a 15 lb bow. Under 16 needs adult supervision.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> <strong>Required.</strong></p>
+                        <p class="mb-2"><strong>Price:</strong> $30 per person.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> General praise for "helpful staff."</p>
+                    `
+                },
+                {
+                    id: 3, title: 'Kayaking / Boating',
+                    summary: 'Rent kayaks or canoes for an hour on the beautiful Skytop Lake.',
+                    ages: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 74], type: 'Water',
+                    details: `
+                        <p class="mb-2"><strong>Description:</strong> Enjoy the scenery by renting a kayak or canoe. Guided evening paddles are also available.</p>
+                        <p class="mb-2"><strong>Requirements:</strong> Children <strong>6+</strong> can ride in a double kayak with an adult. Must be 12+ to paddle a single kayak with an adult on the water. Must be 16+ to go alone.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> Rentals are first-come, first-served. Guided tours likely need reservations.</p>
+                        <p class="mb-2"><strong>Price:</strong> Single Kayak: $20, Double Kayak: $30.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> "Beautiful grounds," "tranquil and exhilarating."</p>
+                    `
+                },
+                {
+                    id: 4, title: 'Golf',
+                    summary: '18-hole championship course with spectacular mountain scenery.',
+                    ages: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 74, 75], type: 'Sports',
+                    details: `
+                        <p class="mb-2"><strong>Description:</strong> A highly-rated 18-hole course with driving range and pro shop. Challenges players of all skill levels.</p>
+                        <p class="mb-2"><strong>Requirements:</strong> Junior Golf School available in August for ages <strong>4-10</strong>. Collared shirts and soft spike shoes required.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> <strong>Tee times required.</strong> Book in advance.</p>
+                        <p class="mb-2"><strong>Price:</strong> In-season rates apply. Junior (20-) and Senior (55+) rates available.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> "Spectacular scenery," "impeccably maintained."</p>
+                    `
+                },
+                {
+                    id: 5, title: 'Hiking',
+                    summary: 'Over 30 miles of private trails, from easy lake loops to strenuous mountain climbs.',
+                    ages: [0, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 74, 75], type: 'Relaxing',
+                    details: `
+                        <p class="mb-2"><strong>Description:</strong> Explore the beautiful Poconos on over 30 miles of trails. Options for all fitness levels. Easy trails like the Lake Trail are stroller-friendly.</p>
+                        <p class="mb-2"><strong>Requirements:</strong> None. Trails vary in difficulty.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> Not required for general hiking.</p>
+                        <p class="mb-2"><strong>Price:</strong> Complimentary for resort guests.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> "Beautiful area," "peace and quiet." The "waterfall hike" is highly praised.</p>
+                    `
+                },
+                 {
+                    id: 6, title: 'Beach & Wibit',
+                    summary: 'A sandy beach with a floating water park, including obstacles, slides, and jumps.',
+                    ages: [0, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 74], type: 'Water',
+                    details: `
+                        <p class="mb-2"><strong>Description:</strong> A guest favorite! This floating water park on Skytop Lake is perfect for a summer day. Includes various obstacles, slides, and jumping platforms.</p>
+                        <p class="mb-2"><strong>Requirements:</strong> All ages welcome on the beach with adult supervision. Wibit is great for a wide range of ages, from 8 to 74 according to one review!</p>
+                        <p class="mb-2"><strong>Reservations:</strong> No, but wristbands are required for access.</p>
+                        <p class="mb-2"><strong>Price:</strong> Not specified, likely included for guests.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> "Fabulous," "best day with our family," "something for all ages and abilities." Praised for cleanliness and safety (lifeguards on duty).</p>
+                    `
+                },
+                {
+                    id: 7, title: 'Paintball',
+                    summary: 'Exciting sessions on various fields. Target Range also available.',
+                    ages: [0, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 74], type: 'Adventurous',
+                    details: `
+                        <p class="mb-2"><strong>Description:</strong> Woodsball and "scrapyard" fields for team games. A separate target range is also available.</p>
+                        <p class="mb-2"><strong>Requirements:</strong> Full game: <strong>10+ years old.</strong> Target range: <strong>No minimum age</strong>, making it great for younger kids!</p>
+                        <p class="mb-2"><strong>Reservations:</strong> <strong>Required</strong> for full game (min. 6 people). Target range is walk-in.</p>
+                        <p class="mb-2"><strong>Price:</strong> Full game: $60 (includes gear and 500 paintballs). Target range: $15/100 balls.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> "Exciting," "perfect activity for the whole family."</p>
+                    `
+                },
+                 {
+                    id: 8, title: 'Axe Throwing',
+                    summary: 'A popular and fun activity with expert coaches. Perfect for teens and adults.',
+                    ages: [14, 15, 16, 17, 18, 74], type: 'Sports',
+                    details: `
+                        <p class="mb-2"><strong>Description:</strong> Learn to throw axes in a safe, enclosed environment with coaching and games.</p>
+                        <p class="mb-2"><strong>Requirements:</strong> <strong>14+ years old.</strong> Closed-toed shoes required.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> <strong>Strongly suggested.</strong></p>
+                        <p class="mb-2"><strong>Price:</strong> $30 per person for a 1-hour session.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> Noted as a fun and unique activity for older kids and adults.</p>
+                    `
+                },
+                {
+                    id: 9, title: 'Rock Climbing Wall',
+                    summary: 'A 30-foot outdoor wall with routes for all skill levels.',
+                    ages: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 74], type: 'Adventurous',
+                    details: `
+                        <p class="mb-2"><strong>Description:</strong> A 30-foot wall with three routes from easy to very difficult. Session includes 6 tries.</p>
+                        <p class="mb-2"><strong>Requirements:</strong> <strong>4+ years old.</strong> Weight between 40-250 lbs.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> <strong>Yes</strong>, contact the Concierge.</p>
+                        <p class="mb-2"><strong>Price:</strong> $10 for guests.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> A thrilling experience, particularly for children and teens.</p>
+                    `
+                },
+                {
+                    id: 10, title: 'Lawn Games',
+                    summary: 'Relaxed fun on the South Lawn, including life-size chess and a playground.',
+                    ages: [0, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 74, 75], type: 'Relaxing',
+                    details: `
+                        <p class="mb-2"><strong>Description:</strong> Enjoy a variety of complimentary games on the lawn, including life-size chess, croquet, corn hole, a putting green, and a playground for the little ones.</p>
+                        <p class="mb-2"><strong>Requirements:</strong> None! Fun for all ages.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> Not required.</p>
+                        <p class="mb-2"><strong>Price:</strong> Complimentary.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> Perfect for multi-generational fun in a relaxed setting.</p>
+                    `
+                },
+                 {
+                    id: 11, title: 'Beekeeping',
+                    summary: 'Learn about bees and pollinators. Special "Dance with the Beekeeper" on Aug 9th.',
+                    ages: [0, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 74, 75], type: 'Creative/Educational',
+                    details: `
+                        <p class="mb-2"><strong>Description:</strong> An educational opportunity to learn about the vital role of bees. Classes like "Bees Wax Candle Dipping" are available.</p>
+                        <p class="mb-2"><strong>Special Event:</strong> "Dance with the Beekeeper" is scheduled for <strong>Friday, August 9th!</strong></p>
+                        <p class="mb-2"><strong>Requirements:</strong> No specific age limits mentioned.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> Required for specific classes.</p>
+                        <p class="mb-2"><strong>Price:</strong> Some classes are $10.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> Aligns well with the lodge's nature themes.</p>
+                    `
+                },
+                {
+                    id: 12, title: 'Pickleball',
+                    summary: 'A fun paddle sport for all ages and skill levels.',
+                    ages: [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 74, 75], type: 'Sports',
+                    details: `
+                        <p class="mb-2"><strong>Description:</strong> A fun and social paddle sport that combines elements of tennis and ping-pong. Easy to learn.</p>
+                        <p class="mb-2"><strong>Requirements:</strong> All ages and skill levels.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> <strong>Required.</strong></p>
+                        <p class="mb-2"><strong>Price:</strong> Complimentary for resort guests.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> Great activity for groups.</p>
+                    `
+                },
+            ];
+
+            const diningData = [
+                 {
+                    id: 1, name: 'Windsor',
+                    type: 'Fine Dining',
+                    summary: 'Traditional cuisine in a classic, elegant setting. Resort casual dress code.',
+                    details: `
+                        <p class="mb-2"><strong>Cuisine:</strong> Traditional American with a focus on seasonal, local ingredients.</p>
+                        <p class="mb-2"><strong>Atmosphere:</strong> Classic and elegant. "Resort casual" dress code. Electronics use is discouraged.</p>
+                        <p class="mb-2"><strong>Highlighted Dishes:</strong> Filet Mignon ($56), Chilean Seabass ($52), Pan Seared Duck Breast ($38), pre-order Beef Wellington for Two ($125).</p>
+                        <p class="mb-2"><strong>Price:</strong> Entrees $22 - $56. Breakfast buffet available.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> <strong>Suggested for dinner.</strong></p>
+                        <p class="mb-2"><strong>Reviews:</strong> Dinner receives very high praise for "delicious" food and "professional" service. A great option for a more refined family meal, and a Kids Menu is available.</p>
+                    `
+                },
+                {
+                    id: 2, name: 'Lakeview',
+                    type: 'Fine Dining',
+                    summary: 'Contemporary Mediterranean cuisine with breathtaking views of the lake.',
+                    details: `
+                        <p class="mb-2"><strong>Cuisine:</strong> Contemporary Mediterranean.</p>
+                        <p class="mb-2"><strong>Atmosphere:</strong> The main draw is the "breathtaking views" of the lake and golf course. Expansive patio.</p>
+                        <p class="mb-2"><strong>Highlighted Dishes:</strong> Pan Seared Scallops ($33), Cedar Plank Roasted Salmon ($32), Bone In Ribeye ($59).</p>
+                        <p class="mb-2"><strong>Price:</strong> Entrees $19 - $59.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> <strong>Suggested for dinner.</strong></p>
+                        <p class="mb-2"><strong>Reviews:</strong> Mixed reviews on food, but views and service are consistently praised. Good for large groups.</p>
+                    `
+                },
+                {
+                    id: 3, name: 'The Taproom',
+                    type: 'Casual',
+                    summary: 'Regional, bistro-style menu with a cozy, family-friendly pub feel.',
+                    details: `
+                        <p class="mb-2"><strong>Cuisine:</strong> Regional bistro/tavern food.</p>
+                        <p class="mb-2"><strong>Atmosphere:</strong> Cozy "English pub" feel with a fireplace. Recently expanded to be family-friendly.</p>
+                        <p class="mb-2"><strong>Highlighted Dishes:</strong> Taproom Nachos, Stone Fire Flatbread Pizza, Tap Classic Burger, Birria Taco Mac & Cheese.</p>
+                        <p class="mb-2"><strong>Price:</strong> Entrees $18 - $37. Shareables and burgers are cheaper.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> Not explicitly stated, but can be busy.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> Very positive. "Food is well above typical tavern food." A great, relaxed choice for the whole family.</p>
+                    `
+                },
+                 {
+                    id: 4, name: 'The Market',
+                    type: 'Quick Bites',
+                    summary: 'An "old corner drugstore" with sandwiches, hot dogs, and amazing milkshakes.',
+                    details: `
+                        <p class="mb-2"><strong>Cuisine:</strong> Deli/Snack shop.</p>
+                        <p class="mb-2"><strong>Atmosphere:</strong> Casual grab-and-go. Throwback to an old-fashioned drugstore.</p>
+                        <p class="mb-2"><strong>Menu:</strong> Made-to-order sandwiches, hot dogs, snacks, ice cream sundaes, and milkshakes.</p>
+                        <p class="mb-2"><strong>Price:</strong> Not specified (casual pricing expected).</p>
+                        <p class="mb-2"><strong>Reservations:</strong> Not required.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> The "go-to spot" for quick and easy options. Perfect for families with young children needing a fast meal or a treat.</p>
+                    `
+                },
+                {
+                    id: 5, name: 'Callaway\'s',
+                    type: 'Quick Bites',
+                    summary: 'Fresh deli menu with light sandwiches, salads, and breakfast options.',
+                    details: `
+                        <p class="mb-2"><strong>Cuisine:</strong> Deli.</p>
+                        <p class="mb-2"><strong>Atmosphere:</strong> Casual counter-service.</p>
+                        <p class="mb-2"><strong>Menu:</strong> Offers both breakfast and lunch. Customizable salads, burgers, hot dogs, wraps, and sandwiches.</p>
+                        <p class="mb-2"><strong>Price:</strong> Most items $10 - $15.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> Not required for deli service.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> A practical choice for quick, adaptable meals that can satisfy everyone in the family.</p>
+                    `
+                },
+                 {
+                    id: 6, name: 'Corner Roast',
+                    type: 'Quick Bites',
+                    summary: 'Coffee shop with locally roasted coffee and freshly made pastries.',
+                    details: `
+                        <p class="mb-2"><strong>Cuisine:</strong> Coffee Shop.</p>
+                        <p class="mb-2"><strong>Atmosphere:</strong> Casual.</p>
+                        <p class="mb-2"><strong>Menu:</strong> Free trade, organic, locally roasted coffee and fresh pastries.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> Not required.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> Good for a morning coffee and pastry, but one review noted limited options.</p>
+                    `
+                },
+                {
+                    id: 7, name: 'Library Lounge',
+                    type: 'Bar/Lounge',
+                    summary: 'The "Coziest Bar in the Poconos" for crafted cocktails and wine.',
+                    details: `
+                        <p class="mb-2"><strong>Cuisine:</strong> Bar/Lounge.</p>
+                        <p class="mb-2"><strong>Atmosphere:</strong> Adult-oriented. Cozy with fireplace, bookshelves, and a "Gatsby feel."</p>
+                        <p class="mb-2"><strong>Menu:</strong> Crafted cocktails, extensive wine list, craft beers. Not a food destination.</p>
+                        <p class="mb-2"><strong>Reservations:</strong> Not specified.</p>
+                        <p class="mb-2"><strong>Reviews:</strong> The "perfect place to gather before or after dinner." An ideal retreat for the adults in the group.</p>
+                    `
+                }
+            ];
+            
+            const activityGrid = document.getElementById('activity-grid');
+            const diningGrid = document.getElementById('dining-grid');
+
+            const createCard = (item, type) => {
+                const card = document.createElement('div');
+                card.className = 'card rounded-lg p-6 flex flex-col justify-between shadow-sm';
+                card.dataset.id = item.id;
+                
+                if (type === 'activity') {
+                    card.dataset.ages = item.ages.join(',');
+                    card.dataset.type = item.type;
+                } else {
+                     card.dataset.diningType = item.type;
+                }
+
+                let reservationIcon = '';
+                if (item.details.toLowerCase().includes('reservations:</strong> <strong>required')) {
+                    reservationIcon = '<span class="text-xs font-semibold bg-red-100 text-red-800 px-2 py-1 rounded-full">📅 Reservation Required</span>';
+                } else if (item.details.toLowerCase().includes('reservations:</strong> <strong>strongly suggested') || item.details.toLowerCase().includes('reservations:</strong> <strong>suggested')) {
+                    reservationIcon = '<span class="text-xs font-semibold bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">📅 Reservation Suggested</span>';
+                }
+
+                card.innerHTML = `
+                    <div>
+                        <div class="flex justify-between items-start">
+                             <h3 class="text-xl font-bold mb-2">${type === 'activity' ? item.title : item.name}</h3>
+                             <button class="favorite-icon text-2xl text-gray-300 hover:text-[--accent] transition-colors">⭐</button>
+                        </div>
+                        <p class="text-sm mb-4" style="color: var(--text-light);">${item.summary}</p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-[--border-color] flex flex-col space-y-3">
+                        <div class="flex justify-start items-center gap-2 flex-wrap">
+                            ${reservationIcon}
+                        </div>
+                        <button class="btn-primary w-full text-center py-2 px-4 rounded-lg font-semibold show-details-btn">Show Details</button>
+                    </div>
+                `;
+
+                return card;
+            };
+
+            const populateGrid = (grid, data, type) => {
+                data.forEach(item => {
+                    const card = createCard(item, type);
+                    grid.appendChild(card);
+                });
+            };
+
+            populateGrid(activityGrid, activityData, 'activity');
+            populateGrid(diningGrid, diningData, 'dining');
+
+            // Navigation
+            const nav = document.getElementById('main-nav');
+            const pages = document.querySelectorAll('.page');
+            nav.addEventListener('click', (e) => {
+                if (e.target.matches('button')) {
+                    const targetId = e.target.dataset.target;
+                    
+                    nav.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+                    e.target.classList.add('active');
+
+                    pages.forEach(page => {
+                        if (page.id === targetId) {
+                            page.classList.remove('hidden');
+                        } else {
+                            page.classList.add('hidden');
+                        }
+                    });
+                }
+            });
+
+            // Filtering
+            const ageFilters = document.getElementById('age-filters');
+            const typeFilters = document.getElementById('type-filters');
+            const diningFilters = document.getElementById('dining-filters');
+            const allActivityCards = activityGrid.querySelectorAll('.card');
+            const allDiningCards = diningGrid.querySelectorAll('.card');
+
+            let activeAgeFilter = 'all';
+            let activeTypeFilter = 'all';
+            let activeDiningFilter = 'all';
+
+            const applyActivityFilters = () => {
+                allActivityCards.forEach(card => {
+                    const ages = card.dataset.ages.split(',').map(Number);
+                    const type = card.dataset.type;
+
+                    const ageMatch = activeAgeFilter === 'all' || 
+                        (activeAgeFilter === '0-5' && ages.some(a => a >= 0 && a <= 5)) ||
+                        (activeAgeFilter === '6-12' && ages.some(a => a >= 6 && a <= 12)) ||
+                        (activeAgeFilter === '13-17' && ages.some(a => a >= 13 && a <= 17)) ||
+                        (activeAgeFilter === '18+' && ages.some(a => a >= 18));
+                    
+                    const typeMatch = activeTypeFilter === 'all' || type === activeTypeFilter;
+
+                    if (ageMatch && typeMatch) {
+                        card.classList.remove('hidden');
+                    } else {
+                        card.classList.add('hidden');
+                    }
+                });
+            };
+            
+            const applyDiningFilters = () => {
+                allDiningCards.forEach(card => {
+                    const type = card.dataset.diningType;
+                    const typeMatch = activeDiningFilter === 'all' || type === activeDiningFilter;
+                     if (typeMatch) {
+                        card.classList.remove('hidden');
+                    } else {
+                        card.classList.add('hidden');
+                    }
+                });
+            };
+
+            ageFilters.addEventListener('click', e => {
+                if (e.target.matches('button')) {
+                    ageFilters.querySelector('.active').classList.remove('active');
+                    e.target.classList.add('active');
+                    activeAgeFilter = e.target.dataset.age;
+                    applyActivityFilters();
+                }
+            });
+
+            typeFilters.addEventListener('click', e => {
+                if (e.target.matches('button')) {
+                    typeFilters.querySelector('.active').classList.remove('active');
+                    e.target.classList.add('active');
+                    activeTypeFilter = e.target.dataset.type;
+                    applyActivityFilters();
+                }
+            });
+
+             diningFilters.addEventListener('click', e => {
+                if (e.target.matches('button')) {
+                    diningFilters.querySelector('.active').classList.remove('active');
+                    e.target.classList.add('active');
+                    activeDiningFilter = e.target.dataset.diningType;
+                    applyDiningFilters();
+                }
+            });
+
+            // Modal Logic
+            const modal = document.getElementById('modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalContent = document.getElementById('modal-content');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+
+            const openModal = (item, type) => {
+                modalTitle.textContent = type === 'activity' ? item.title : item.name;
+                modalContent.innerHTML = item.details;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                document.body.style.overflow = 'hidden';
+            };
+
+            const closeModal = () => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                document.body.style.overflow = '';
+            };
+            
+            document.body.addEventListener('click', (e) => {
+                if (e.target.classList.contains('show-details-btn')) {
+                    const card = e.target.closest('.card');
+                    const id = parseInt(card.dataset.id);
+                    const parentGridId = card.parentElement.id;
+                    if(parentGridId === 'activity-grid') {
+                        const item = activityData.find(d => d.id === id);
+                        openModal(item, 'activity');
+                    } else {
+                        const item = diningData.find(d => d.id === id);
+                        openModal(item, 'dining');
+                    }
+                }
+                
+                if (e.target.classList.contains('favorite-icon')) {
+                    e.target.classList.toggle('favorited');
+                }
+            });
+
+            modalCloseBtn.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
+            
+            // Chart.js Logic
+            const ctx = document.getElementById('activityTypeChart').getContext('2d');
+            const activityTypes = activityData.reduce((acc, curr) => {
+                acc[curr.type] = (acc[curr.type] || 0) + 1;
+                return acc;
+            }, {});
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(activityTypes),
+                    datasets: [{
+                        label: '# of Activities',
+                        data: Object.values(activityTypes),
+                        backgroundColor: [
+                            'rgba(40, 84, 48, 0.6)',
+                            'rgba(76, 175, 80, 0.6)',
+                            'rgba(164, 190, 123, 0.6)',
+                            'rgba(222, 171, 77, 0.6)',
+                            'rgba(201, 154, 69, 0.6)',
+                        ],
+                        borderColor: [
+                           'rgba(40, 84, 48, 1)',
+                           'rgba(76, 175, 80, 1)',
+                           'rgba(164, 190, 123, 1)',
+                           'rgba(222, 171, 77, 1)',
+                           'rgba(201, 154, 69, 1)',
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Activity Categories at Skytop Lodge',
+                            font: {
+                                size: 18,
+                                family: 'Lora'
+                            },
+                            color: '#3D4043'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+
+        });
+    </script>
+
 </body>
 </html>
